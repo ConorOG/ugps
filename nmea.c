@@ -79,16 +79,19 @@ nmea_rmc_cb(void)
 	memset(&tm, 0, sizeof(tm));
 	tm.tm_isdst = 1;
 
-	if (!strptime(nmea_params[1].str, "%H%M%S", &tm))
-		ERROR("failed to parse time\n");
-	else if (!strptime(nmea_params[9].str, "%d%m%y", &tm))
-		ERROR("failed to parse date\n");
+	if (sscanf(nmea_params[1].str, "%2d%2d%2d", &tm.tm_hour, &tm.tm_min, &tm.tm_sec) != 3)
+		ERROR("failed to parse time '%s'\n", nmea_params[1].str);
+	else if (sscanf(nmea_params[9].str, "%2d%2d%2d", &tm.tm_mday, &tm.tm_mon, &tm.tm_year) != 3)
+		ERROR("failed to parse date '%s'\n", nmea_params[9].str);
 	else {
+		tm.tm_mon -= 1;
+		tm.tm_year += 100;
+
 		/* is there a libc api for the tz adjustment ? */
 		struct timeval tv = { mktime(&tm), 0 };
 		struct timeval cur;
 
-		strftime(tmp, 256, "%D %02H:%02M:%02S", &tm);
+		strftime(tmp, 256, "%D %H:%M:%S", &tm);
 		LOG("date: %s UTC\n", tmp);
 
 		tv.tv_sec -= timezone;
