@@ -110,46 +110,45 @@ nmea_rmc_cb(void)
 		}
 	}
 
-	if (strlen(nmea_params[3].str) != 9 || strlen(nmea_params[5].str) != 10) {
-		ERROR("lat/lng have invalid string length\n");
-	} else {
-		int latd, latm, lats;
-		int lngd, lngm, lngs;
+	int latd, lngd;
+	float flatm, flngm;
+
+	if (sscanf(nmea_params[3].str, "%2d%f", &latd, &flatm) != 2)
+		ERROR("lat has invalid format '%s'\n", nmea_params[3].str);
+	else if (sscanf(nmea_params[5].str, "%3d%f", &lngd, &flngm) != 2)
+		ERROR("long has invalid format '%s'\n", nmea_params[5].str);
+	else {
+		int latm, lngm;
 		float flats, flngs;
-		LOG("position: %s, %s\n",
-			nmea_params[3].str, nmea_params[5].str);
-		latm = atoi(&nmea_params[3].str[2]);
-		nmea_params[3].str[2] = '\0';
-		latd = atoi(nmea_params[3].str);
-		lats = atoi(&nmea_params[3].str[5]);
-		if (*nmea_params[4].str != 'N')
-			latm *= -1;
+		float flatd, flngd;
 
-		lngm = atoi(&nmea_params[5].str[3]);
-		nmea_params[5].str[3] = '\0';
-		lngd = atoi(nmea_params[5].str);
-		lngs = atoi(&nmea_params[5].str[6]);
-		if (*nmea_params[6].str != 'E')
-			lngm *= -1;
+		/* fixup int and float Degrees, Minutes, Seconds for latitude and longitude */
+		latm = (int)flatm;
+		flats = (flatm - latm) * 60.0;
+		if (*nmea_params[4].str != 'N') {
+			latd = -latd;
+			flatd = latd - (flatm / 60.0);
+		} else
+			flatd = latd + (flatm / 60.0);
 
-		flats = lats;
-		flats *= 60;
-		flats /= 10000;
+		lngm = (int)flngm;
+		flngs = (flngm - lngm) * 60.0;
+		if (*nmea_params[6].str != 'E') {
+			lngd = -lngd;
+			flngd = lngd - (flngm / 60.0);
+		} else
+			flngd = lngd + (flngm / 60.0);
 
-		flngs = lngs;
-		flngs *= 60;
-		flngs /= 10000;
+		/* various format options */
+		LOG("position (DMM): %d°%f', %d°%f'\n", latd, flatm, lngd, flngm);
 
-#define ms_to_deg(x, y) (((x * 10000) + y) / 60)
-
-		LOG("position: %d°%d.%04d, %d°%d.%04d\n",
-			latd, latm, lats, lngd, lngm, lngs);
-		LOG("position: %d°%d'%.1f\" %d°%d'%.1f\"\n",
+		LOG("position (DMS): %d°%d'%.1f\", %d°%d'%.1f\"\n",
 			latd, latm, flats, lngd, lngm, flngs);
 
-		snprintf(lattitude, sizeof(lattitude), "%d.%d", latd, ms_to_deg(latm, lats));
-		snprintf(longitude, sizeof(longitude), "%d.%d", lngd, ms_to_deg(lngm, lngs));
-		LOG("position: %s %s\n", lattitude, longitude);
+		snprintf(lattitude, sizeof(lattitude), "%f", flatd);
+		snprintf(longitude, sizeof(longitude), "%f", flngd);
+
+		LOG("position (DDD): %s, %s\n", lattitude, longitude);
 		gps_timestamp();
 	}
 }
